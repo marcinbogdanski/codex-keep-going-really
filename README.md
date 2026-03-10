@@ -1,75 +1,85 @@
-# codex_tmux
+# Codex, no, really keep going, seriously
 
-This folder contains a small watchdog for running `codex` inside a dedicated `tmux` session and nudging it when it appears to have gone idle too early.
 
-## Why this exists
+Two workarounds that together allow using codex for [autoresearch](https://github.com/karpathy/autoresearch).
 
-For long-running autonomous tasks, Codex can sometimes stop after a few iterations even when the task instructions clearly say to continue. A lightweight workaround is:
+Codex by default in unusable for autoresearch [link](https://github.com/karpathy/autoresearch/issues/57)
 
-1. Run Codex in a dedicated `tmux` pane.
-2. Poll `tmux` for the pane's recent activity.
-3. If the pane has been idle for too long, send `please continue`.
+Combining these two workarounds I was able to wake up to 2 agents still runing overnight (after 7h, 55/53 experiments each).
 
-This is intentionally simpler than a full supervisor. It does not try to restart Codex or rebuild state. It only nudges an existing session that appears to have become idle.
+## System Prompt
 
-## How the watchdog decides to nudge
+Codex GPT-5.4 original system prompt (see: [CODEX_GPT54_BASE_INSTRUCTIONS.md](CODEX_GPT54_BASE_INSTRUCTIONS.md), taken from codex source code repo) implies turn based nature of work.
 
-The script uses `tmux` format fields:
+With Codex we modified this to [CODEX_GPT54_AI_RESEARCHER.md](CODEX_GPT54_AI_RESEARCHER.md) which applies minimum changes to:
 
-- `#{window_activity}`: Unix timestamp of the last activity in the window
-- `#{pane_current_command}`: current foreground command in the pane
-- `#{pane_dead}`: whether the pane process has exited
+- explicitly specify ongoing infinite nature of work, and
+- put emphasis on AI research work (if you're using it for something else rephrase that part)
+- other than that kept most parts or the original prompt unchanged
 
-`tmux` does not appear to expose a precise `pane_activity` timestamp, so `window_activity` is the practical signal. This works best when Codex is running in a dedicated one-window/one-pane session.
-
-## Files
-
-- `agent_tmux_watchdog.sh`: the watchdog loop
-
-## Basic usage
-
-Start Codex in its own tmux session:
+**How to use**
 
 ```bash
-tmux new-session -d -s codex 'cd /path/to/repo && codex'
+git clone git@github.com:karpathy/autoresearch.git
+cd autoresearch
+mkdir .codex
+touch .codex/config.toml
 ```
 
-Run the watchdog in another shell:
+Then insert this line in `config.toml`
 
 ```bash
-cd /home/user/projects/agenthub/codex_tmux
-./agent_tmux_watchdog.sh codex
+model_instructions_file = "/home/user/.codex/CODEX_GPT54_AI_RESEARCHER.md"
 ```
 
-Arguments:
+Start codex as normal, to confirm it worked as this question:
 
-- `SESSION_NAME` is required as the first positional argument
+```
+According to your instructions, is 'git reset --hard' allowed? What execptions exist?
+```
 
-Defaults:
+Model should list two exceptions:
 
-- target pane is always `window 0`, `pane 0`
-- `SLEEP_SECONDS=60`
-- logs are printed to stdout and appended to `~/.codex/watchdog_<session>.log`
-- `IDLE_SECONDS=600`
-- `NUDGE_COOLDOWN_SECONDS=600`
-- `CONTINUE_TEXT` is set near the top of the script:
-  `Continue autonomously from the current state and follow the active experiment protocol in program_agenthub.md. This is an ongoing experiment loop, not a completed turn. Read the latest result, take the next action, and keep running experiments. Do not summarize or stop unless explicitly told to stop or you hit a real blocker.`
+- user explicitly asked for hard reset (present in both system prompts)
+- during experiment loop to reset branch (present only in modified AI Researcher prompt file)
 
-## Example
+**Results**
 
-Watch a session named `codex_gpu1`:
+Based from me eyebaling it over two nights codex gose from stopping after 5-8 experiments to stopping after 20-30 turns. This does not sovle problem on it sown, hence second hack...
+
+## TMUX Watchdog
+
+Idea: start codex in tmux terminal. Then external script, in a loop, checks if tmux session for inactivity. If inactive detected injects "Please continue" to codex terminal. This works becasue when working, codex displayes flashy wave "Working" and incremental timer "32m 14s".
+
+This is super ugly and hacky. I hate it, but works in time for something more proper to appear.
+
+Side note: this (with modification?) may also work for other harnesses.
+
+**How to use**
+
+```bash
+git clone git@github.com:karpathy/autoresearch.git
+cd autoresearch
+codex --yolo       # Accept 'trusted folder' prompt, so codex doesnt ask again later
+```
+
+Then:
+
+```bash
+tmux new-session -s codex_gpu1 'cd /path/to/folder/autoresearch && codex --yolo'
+```
+
+Then: normal interactive session, talk to it etc
+
+After loop started, in a different terminal:
 
 ```bash
 ./agent_tmux_watchdog.sh codex_gpu1
 ```
 
-## Caveats
+At this point, watchdog will monitor for inactivity and inject "Please continue" if 600s inactivity window is crossed.
 
-- This is a heuristic, not a guarantee.
-- `window_activity` is a window-level signal, so keep Codex in a dedicated pane.
-- A blind nudge can still be wrong if the model is thinking silently or waiting on something unusual.
-- If the session exits entirely, this script logs that fact and exits. It does not relaunch Codex.
+**Results**
 
-## Future extension
+Overnight this happened to me 3 times between 2 two agents. After 7h both agents were still going.
 
-If you need a more precise idle signal, the next step would be using `tmux pipe-pane` to stream pane output into a logfile and key the watchdog off the logfile modification time instead of `window_activity`.
