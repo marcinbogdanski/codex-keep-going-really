@@ -1,5 +1,6 @@
 # Codex, no, really keep going, seriously
 
+**EDIT: Looks like OpenAI hooks engine was just merged: [start of hooks engine](https://github.com/openai/codex/pull/13276). This in theory should be preferred solution to Tmux watchdog below.**
 
 Two workarounds that together allow using codex for [autoresearch](https://github.com/karpathy/autoresearch).
 
