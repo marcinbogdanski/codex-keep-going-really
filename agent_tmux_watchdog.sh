@@ -8,6 +8,7 @@ fi
 
 SESSION_NAME="$1"
 LOG_FILE="$HOME/.codex/watchdog_${SESSION_NAME//\//_}.log"
+CONTINUE_TEXT="Continue autonomously from the current state and follow the active experiment protocol in program_agenthub.md. This is an ongoing experiment loop, not a completed turn. Read the latest result, take the next action, and keep running experiments. Do not summarize or stop unless explicitly told to stop or you hit a real blocker."
 last_nudge_ts=0
 
 mkdir -p "$HOME/.codex"
@@ -31,6 +32,7 @@ while true; do
 
   now="$(date +%s)"
   idle_for="$((now - last_activity))"
+  log "state session=$SESSION_NAME pane_dead=$pane_dead current_command=$current_command idle_for=${idle_for}s since_last_nudge=$((now - last_nudge_ts))s"
 
   if [[ "$pane_dead" == "1" ]]; then
     log "pane $SESSION_NAME:0.0 is dead; waiting for operator or external restart"
@@ -38,24 +40,18 @@ while true; do
     continue
   fi
 
-  if (( idle_for < ${IDLE_SECONDS:-600} )); then
+  if (( idle_for < 600 )); then
     sleep 60
     continue
   fi
 
-  if (( now - last_nudge_ts < ${NUDGE_COOLDOWN_SECONDS:-600} )); then
-    sleep 60
-    continue
-  fi
-
-  if [[ -n "${BLOCKING_PGREP_REGEX:-train.py}" ]] && pgrep -f "${BLOCKING_PGREP_REGEX:-train.py}" >/dev/null 2>&1; then
-    log "idle threshold reached, but '${BLOCKING_PGREP_REGEX:-train.py}' is still running; skipping nudge"
+  if (( now - last_nudge_ts < 600 )); then
     sleep 60
     continue
   fi
 
   log "nudging $SESSION_NAME:0.0 after ${idle_for}s idle (current command: $current_command)"
-  tmux send-keys -t "$SESSION_NAME:0.0" "${CONTINUE_TEXT:-please continue}" Enter
+  tmux send-keys -t "$SESSION_NAME:0.0" "$CONTINUE_TEXT" Enter
   last_nudge_ts="$now"
 
   sleep 60

@@ -22,8 +22,6 @@ The script uses `tmux` format fields:
 
 `tmux` does not appear to expose a precise `pane_activity` timestamp, so `window_activity` is the practical signal. This works best when Codex is running in a dedicated one-window/one-pane session.
 
-The script also supports a coarse "do not nudge while a long-running job is still active" check via `pgrep`. By default it looks for `train.py`.
-
 ## Files
 
 - `agent_tmux_watchdog.sh`: the watchdog loop
@@ -52,29 +50,17 @@ Defaults:
 - target pane is always `window 0`, `pane 0`
 - poll interval is fixed at `60` seconds
 - logs are printed to stdout and appended to `~/.codex/watchdog_<session>.log`
-- `IDLE_SECONDS=600`
-- `NUDGE_COOLDOWN_SECONDS=600`
-- `CONTINUE_TEXT="please continue"`
-- `BLOCKING_PGREP_REGEX="train.py"`
+- idle threshold is fixed at `600` seconds
+- nudge cooldown is fixed at `600` seconds
+- `CONTINUE_TEXT` is set near the top of the script:
+  `Please continue from the current state. Do not summarize or stop; take the next action in the experiment loop.`
 
-## Examples
+## Example
 
-Watch a session named `codex_gpu1` and use a shorter idle threshold:
-
-```bash
-IDLE_SECONDS=420 ./agent_tmux_watchdog.sh codex_gpu1
-```
-
-Disable the `pgrep` blocker entirely:
+Watch a session named `codex_gpu1`:
 
 ```bash
-BLOCKING_PGREP_REGEX= ./agent_tmux_watchdog.sh codex
-```
-
-Use a different nudge text:
-
-```bash
-CONTINUE_TEXT='please continue from the current state' ./agent_tmux_watchdog.sh codex
+./agent_tmux_watchdog.sh codex_gpu1
 ```
 
 ## Caveats
