@@ -23,6 +23,21 @@ log() {
   printf '%s\n' "$line" >> "$LOG_FILE"
 }
 
+send_prompt_slow() {
+  local target="$1"
+  local text="$2"
+  local i ch
+
+  for ((i=0; i<${#text}; i++)); do
+    ch="${text:i:1}"
+    tmux send-keys -t "$target" -l "$ch"
+    sleep 0.15
+  done
+
+  sleep 0.5
+  tmux send-keys -t "$target" Enter
+}
+
 while true; do
   if ! tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     log "session '$SESSION_NAME' not found; exiting"
@@ -54,8 +69,7 @@ while true; do
   fi
 
   log "nudging $SESSION_NAME:0.0 after ${idle_for}s idle (current command: $current_command)"
-  tmux send-keys -t "$SESSION_NAME:0.0" -l "$CONTINUE_TEXT"
-  tmux send-keys -t "$SESSION_NAME:0.0" C-m
+  send_prompt_slow "$SESSION_NAME:0.0" "$CONTINUE_TEXT"
   last_nudge_ts="$now"
 
   sleep "$SLEEP_SECONDS"

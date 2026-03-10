@@ -48,12 +48,12 @@ Arguments:
 Defaults:
 
 - target pane is always `window 0`, `pane 0`
-- poll interval is fixed at `60` seconds
+- `SLEEP_SECONDS=60`
 - logs are printed to stdout and appended to `~/.codex/watchdog_<session>.log`
-- idle threshold is fixed at `600` seconds
-- nudge cooldown is fixed at `600` seconds
+- `IDLE_SECONDS=600`
+- `NUDGE_COOLDOWN_SECONDS=600`
 - `CONTINUE_TEXT` is set near the top of the script:
-  `Please continue from the current state. Do not summarize or stop; take the next action in the experiment loop.`
+  `Continue autonomously from the current state and follow the active experiment protocol in program_agenthub.md. This is an ongoing experiment loop, not a completed turn. Read the latest result, take the next action, and keep running experiments. Do not summarize or stop unless explicitly told to stop or you hit a real blocker.`
 
 ## Example
 
