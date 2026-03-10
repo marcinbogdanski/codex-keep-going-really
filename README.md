@@ -26,7 +26,7 @@ The script also supports a coarse "do not nudge while a long-running job is stil
 
 ## Files
 
-- `codex_tmux_watchdog.sh`: the watchdog loop
+- `agent_tmux_watchdog.sh`: the watchdog loop
 
 ## Basic usage
 
@@ -40,16 +40,19 @@ Run the watchdog in another shell:
 
 ```bash
 cd /home/user/projects/agenthub/codex_tmux
-./codex_tmux_watchdog.sh
+./agent_tmux_watchdog.sh codex
 ```
+
+Arguments:
+
+- `SESSION_NAME` is required as the first positional argument
 
 Defaults:
 
-- `SESSION_NAME=codex`
-- `WINDOW_INDEX=0`
-- `PANE_INDEX=0`
+- target pane is always `window 0`, `pane 0`
+- poll interval is fixed at `60` seconds
+- logs are printed to stdout and appended to `~/.codex/watchdog_<session>.log`
 - `IDLE_SECONDS=600`
-- `POLL_SECONDS=60`
 - `NUDGE_COOLDOWN_SECONDS=600`
 - `CONTINUE_TEXT="please continue"`
 - `BLOCKING_PGREP_REGEX="train.py"`
@@ -59,19 +62,19 @@ Defaults:
 Watch a session named `codex_gpu1` and use a shorter idle threshold:
 
 ```bash
-SESSION_NAME=codex_gpu1 IDLE_SECONDS=420 ./codex_tmux_watchdog.sh
+IDLE_SECONDS=420 ./agent_tmux_watchdog.sh codex_gpu1
 ```
 
 Disable the `pgrep` blocker entirely:
 
 ```bash
-BLOCKING_PGREP_REGEX= ./codex_tmux_watchdog.sh
+BLOCKING_PGREP_REGEX= ./agent_tmux_watchdog.sh codex
 ```
 
 Use a different nudge text:
 
 ```bash
-CONTINUE_TEXT='please continue from the current state' ./codex_tmux_watchdog.sh
+CONTINUE_TEXT='please continue from the current state' ./agent_tmux_watchdog.sh codex
 ```
 
 ## Caveats
@@ -79,7 +82,7 @@ CONTINUE_TEXT='please continue from the current state' ./codex_tmux_watchdog.sh
 - This is a heuristic, not a guarantee.
 - `window_activity` is a window-level signal, so keep Codex in a dedicated pane.
 - A blind nudge can still be wrong if the model is thinking silently or waiting on something unusual.
-- If the session exits entirely, this script only logs that fact. It does not relaunch Codex.
+- If the session exits entirely, this script logs that fact and exits. It does not relaunch Codex.
 
 ## Future extension
 
