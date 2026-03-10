@@ -8,9 +8,9 @@ fi
 
 SESSION_NAME="$1"
 LOG_FILE="$HOME/.codex/watchdog_${SESSION_NAME//\//_}.log"
-SLEEP_SECONDS=6
-IDLE_SECONDS=60
-NUDGE_COOLDOWN_SECONDS=60
+SLEEP_SECONDS=60
+IDLE_SECONDS=600
+NUDGE_COOLDOWN_SECONDS=600
 CONTINUE_TEXT="Continue autonomously from the current state and follow the active experiment protocol in program_agenthub.md. This is an ongoing experiment loop, not a completed turn. Read the latest result, take the next action, and keep running experiments. Do not summarize or stop unless explicitly told to stop or you hit a real blocker."
 last_nudge_ts="$(date +%s)"
 
@@ -50,7 +50,20 @@ while true; do
 
   now="$(date +%s)"
   idle_for="$((now - last_activity))"
-  log "state session=$SESSION_NAME pane_dead=$pane_dead current_command=$current_command idle_for=${idle_for}s since_last_nudge=$((now - last_nudge_ts))s"
+  since_last_nudge="$((now - last_nudge_ts))"
+  idle_ttn="$((IDLE_SECONDS - idle_for))"
+  cooldown_ttn="$((NUDGE_COOLDOWN_SECONDS - since_last_nudge))"
+  if (( idle_ttn < 0 )); then
+    idle_ttn=0
+  fi
+  if (( cooldown_ttn < 0 )); then
+    cooldown_ttn=0
+  fi
+  ttn="$idle_ttn"
+  if (( cooldown_ttn > ttn )); then
+    ttn="$cooldown_ttn"
+  fi
+  log "state session=$SESSION_NAME pane_dead=$pane_dead current_command=$current_command idle_for=${idle_for}s since_last_nudge=${since_last_nudge}s ttn=${ttn}s"
 
   if [[ "$pane_dead" == "1" ]]; then
     log "pane $SESSION_NAME:0.0 is dead; waiting for operator or external restart"
