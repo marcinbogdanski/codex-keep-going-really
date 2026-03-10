@@ -8,8 +8,11 @@ fi
 
 SESSION_NAME="$1"
 LOG_FILE="$HOME/.codex/watchdog_${SESSION_NAME//\//_}.log"
+SLEEP_SECONDS=6
+IDLE_SECONDS=60
+NUDGE_COOLDOWN_SECONDS=60
 CONTINUE_TEXT="Continue autonomously from the current state and follow the active experiment protocol in program_agenthub.md. This is an ongoing experiment loop, not a completed turn. Read the latest result, take the next action, and keep running experiments. Do not summarize or stop unless explicitly told to stop or you hit a real blocker."
-last_nudge_ts=0
+last_nudge_ts="$(date +%s)"
 
 mkdir -p "$HOME/.codex"
 
@@ -36,23 +39,24 @@ while true; do
 
   if [[ "$pane_dead" == "1" ]]; then
     log "pane $SESSION_NAME:0.0 is dead; waiting for operator or external restart"
-    sleep 60
+    sleep "$SLEEP_SECONDS"
     continue
   fi
 
-  if (( idle_for < 600 )); then
-    sleep 60
+  if (( idle_for < IDLE_SECONDS )); then
+    sleep "$SLEEP_SECONDS"
     continue
   fi
 
-  if (( now - last_nudge_ts < 600 )); then
-    sleep 60
+  if (( now - last_nudge_ts < NUDGE_COOLDOWN_SECONDS )); then
+    sleep "$SLEEP_SECONDS"
     continue
   fi
 
   log "nudging $SESSION_NAME:0.0 after ${idle_for}s idle (current command: $current_command)"
-  tmux send-keys -t "$SESSION_NAME:0.0" "$CONTINUE_TEXT" Enter
+  tmux send-keys -t "$SESSION_NAME:0.0" -l "$CONTINUE_TEXT"
+  tmux send-keys -t "$SESSION_NAME:0.0" C-m
   last_nudge_ts="$now"
 
-  sleep 60
+  sleep "$SLEEP_SECONDS"
 done
