@@ -15,7 +15,7 @@ With Codex we modified this to [CODEX_GPT54_AI_RESEARCHER.md](CODEX_GPT54_AI_RES
 
 - explicitly specify ongoing infinite nature of work, and
 - put emphasis on AI research work (if you're using it for something else rephrase that part)
-- other than that kept most parts or the original prompt unchanged
+- other than that kept most parts of the original prompt unchanged
 
 **How to use**
 
@@ -29,10 +29,10 @@ touch .codex/config.toml
 Then insert this line in `config.toml`
 
 ```bash
-model_instructions_file = "/home/user/.codex/CODEX_GPT54_AI_RESEARCHER.md"
+model_instructions_file = "/path/to/folder/CODEX_GPT54_AI_RESEARCHER.md"
 ```
 
-Start codex as normal, to confirm it worked as this question:
+Start codex as normal, to confirm it worked with this question:
 
 ```
 According to your instructions, is 'git reset --hard' allowed? What execptions exist?
@@ -45,11 +45,11 @@ Model should list two exceptions:
 
 **Results**
 
-Based from me eyebaling it over two nights codex gose from stopping after 5-8 experiments to stopping after 20-30 turns. This does not sovle problem on it sown, hence second hack...
+Based from me eyebaling it over two nights codex gose from stopping after 5-8 experiments to stopping after 20-30 turns. This does not sovle the problem on its own, hence second hack...
 
 ## TMUX Watchdog
 
-Idea: start codex in tmux terminal. Then external script, in a loop, checks if tmux session for inactivity. If inactive detected injects "Please continue" to codex terminal. This works becasue when working, codex displayes flashy wave "Working" and incremental timer "32m 14s".
+Idea: start codex in tmux terminal. Then external script, in a loop, checks the tmux session for inactivity. If inactivity is detected, watchdog injects "Please continue" to codex terminal. This works becasue when working, codex displayes flashy wave "Working" and incremental timer "32m 14s".
 
 This is super ugly and hacky. I hate it, but works in time for something more proper to appear.
 
@@ -81,5 +81,5 @@ At this point, watchdog will monitor for inactivity and inject "Please continue"
 
 **Results**
 
-Overnight this happened to me 3 times between 2 two agents. After 7h both agents were still going.
+After 7h two agents were still going.
 
