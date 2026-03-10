@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Watch a dedicated tmux session and re-prompt pane 0.0 when it appears idle.
 if [[ $# -lt 1 || -z "${1}" ]]; then
   printf 'usage: %s SESSION_NAME\n' "$0" >&2
   exit 1
 fi
 
+# This script is intentionally single-session and single-pane: one watchdog per tmux session.
 SESSION_NAME="$1"
 LOG_FILE="$HOME/.codex/watchdog_${SESSION_NAME//\//_}.log"
 SLEEP_SECONDS=60
@@ -14,6 +16,7 @@ NUDGE_COOLDOWN_SECONDS=600
 CONTINUE_TEXT="Continue autonomously from the current state and follow the active experiment protocol in program_agenthub.md. This is an ongoing experiment loop, not a completed turn. Read the latest result, take the next action, and keep running experiments. Do not summarize or stop unless explicitly told to stop or you hit a real blocker."
 last_nudge_ts="$(date +%s)"
 
+# Keep logs in a stable per-user location so background runs can be inspected later.
 mkdir -p "$HOME/.codex"
 
 log() {
@@ -28,6 +31,7 @@ send_prompt_slow() {
   local text="$2"
   local i ch
 
+  # Send the nudge character-by-character to avoid dumping a large paste into the tmux client.
   for ((i=0; i<${#text}; i++)); do
     ch="${text:i:1}"
     tmux send-keys -t "$target" -l "$ch"
@@ -48,6 +52,7 @@ while true; do
   current_command="$(tmux display-message -p -t "$SESSION_NAME:0.0" '#{pane_current_command}')"
   pane_dead="$(tmux display-message -p -t "$SESSION_NAME:0.0" '#{pane_dead}')"
 
+  # Use tmux activity time plus our own last-nudge time to decide when the next prompt is allowed.
   now="$(date +%s)"
   idle_for="$((now - last_activity))"
   since_last_nudge="$((now - last_nudge_ts))"
