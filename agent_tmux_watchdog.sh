@@ -14,7 +14,7 @@ LOG_FILE="$HOME/.codex/watchdog_${SESSION_NAME//\//_}.log"
 SLEEP_SECONDS=60
 IDLE_SECONDS=600
 NUDGE_COOLDOWN_SECONDS=600
-CONTINUE_TEXT="Continue autonomously from the current state and follow the active experiment protocol. This is an ongoing experiment loop, not a completed turn. Read the latest result, take the next action, and keep running experiments. Do not summarize or stop unless explicitly told to stop or you hit a real blocker."
+CONTINUE_TEXT="Continue autonomously from the current state and follow the active experiment protocol. This is an ongoing experiment loop, not a completed turn. Read the latest result, take the next action, and keep running experiments. Do not summarize or stop unless explicitly told to stop or you hit a real blocker. If you hit a real blocker, print the token 'autoresearch_stop' converted to uppercase, preserving the underscore, on its own line exactly once. This signals the watchdog to exit."
 last_nudge_ts="$(date +%s)"
 last_rollout_line=""
 
@@ -42,11 +42,17 @@ send_prompt_slow() {
   for ((i=0; i<${#text}; i++)); do
     ch="${text:i:1}"
     tmux send-keys -t "$target" -l "$ch"
-    sleep 0.15
+    sleep 0.10
   done
 
   sleep 0.5
   tmux send-keys -t "$target" Enter
+}
+
+pane_contains_stop_marker() {
+  local target="$1"
+
+  tmux capture-pane -p -t "$target" 2>/dev/null | tr -d '\r\n' | grep -q 'AUTORESEARCH_STOP'
 }
 
 get_last_non_empty_line() {
@@ -71,6 +77,11 @@ while true; do
   if ! tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     log "session '$SESSION_NAME' not found; exiting"
     exit 1
+  fi
+
+  if pane_contains_stop_marker "$SESSION_NAME:0.0"; then
+    log "AUTORESEARCH_STOP detected in pane $SESSION_NAME:0.0; exiting"
+    exit 0
   fi
 
   if [[ -n "$CODEX_ROLLOUT_PATH" && -r "$CODEX_ROLLOUT_PATH" ]]; then
