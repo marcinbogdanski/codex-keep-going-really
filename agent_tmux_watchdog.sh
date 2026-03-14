@@ -2,22 +2,29 @@
 set -euo pipefail
 
 # Watch a dedicated tmux session and re-prompt pane 0.0 when it appears idle.
-if [[ $# -lt 1 || -z "${1}" ]]; then
-  printf 'usage: %s SESSION_NAME\n' "$0" >&2
+if [[ $# -lt 1 || $# -gt 2 || -z "${1}" ]]; then
+  printf 'usage: %s SESSION_NAME [CODEX_ROLLOUT_PATH]\n' "$0" >&2
   exit 1
 fi
 
 # This script is intentionally single-session and single-pane: one watchdog per tmux session.
 SESSION_NAME="$1"
+CODEX_ROLLOUT_PATH="${2:-}"
 LOG_FILE="$HOME/.codex/watchdog_${SESSION_NAME//\//_}.log"
 SLEEP_SECONDS=60
 IDLE_SECONDS=600
 NUDGE_COOLDOWN_SECONDS=600
 CONTINUE_TEXT="Continue autonomously from the current state and follow the active experiment protocol. This is an ongoing experiment loop, not a completed turn. Read the latest result, take the next action, and keep running experiments. Do not summarize or stop unless explicitly told to stop or you hit a real blocker."
 last_nudge_ts="$(date +%s)"
+last_rollout_line=""
 
 # Keep logs in a stable per-user location so background runs can be inspected later.
 mkdir -p "$HOME/.codex"
+
+if [[ -n "$CODEX_ROLLOUT_PATH" && ! -r "$CODEX_ROLLOUT_PATH" ]]; then
+  printf 'rollout path is not readable: %s\n' "$CODEX_ROLLOUT_PATH" >&2
+  exit 1
+fi
 
 log() {
   local line
@@ -42,10 +49,43 @@ send_prompt_slow() {
   tmux send-keys -t "$target" Enter
 }
 
+get_last_non_empty_line() {
+  local path="$1"
+
+  awk 'NF { line = $0 } END { print line }' "$path"
+}
+
+parse_rollout_turn_id() {
+  local line="$1"
+
+  jq -er '
+    select(.type == "event_msg")
+    | .payload
+    | select(type == "object" and .type == "task_complete")
+    | .turn_id
+    | select(type == "string" and length > 0)
+  ' <<<"$line"
+}
+
 while true; do
   if ! tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     log "session '$SESSION_NAME' not found; exiting"
     exit 1
+  fi
+
+  if [[ -n "$CODEX_ROLLOUT_PATH" && -r "$CODEX_ROLLOUT_PATH" ]]; then
+    rollout_line="$(get_last_non_empty_line "$CODEX_ROLLOUT_PATH")"
+    if [[ -n "$rollout_line" && "$rollout_line" != "$last_rollout_line" ]]; then
+      if rollout_turn_id="$(parse_rollout_turn_id "$rollout_line")"; then
+        now="$(date +%s)"
+        log "rollout task_complete detected for turn_id=$rollout_turn_id; nudging $SESSION_NAME:0.0 immediately"
+        send_prompt_slow "$SESSION_NAME:0.0" "$CONTINUE_TEXT"
+        last_nudge_ts="$now"
+        last_rollout_line="$rollout_line"
+        sleep "$SLEEP_SECONDS"
+        continue
+      fi
+    fi
   fi
 
   last_activity="$(tmux display-message -p -t "$SESSION_NAME:0.0" '#{window_activity}')"
